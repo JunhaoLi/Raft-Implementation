@@ -17,7 +17,7 @@ public class RaftLog {
   private LinkedList<Entry> mEntries;
   private Path mLogPath;
   
-  public RaftLog (String file) {
+  public RaftLog (String file) {  //将file中的内容读入变成linkedlist
     mEntries = new LinkedList<Entry> ();
     try {
       mLogPath = FileSystems.getDefault ().getPath (file);
@@ -26,12 +26,12 @@ public class RaftLog {
 					       StandardCharsets.US_ASCII);
       Entry e = null;
       
-      for (String line : lines) {
+      for (String line : lines) {  //log以空格分开, term_action
 	String[] tokens = line.split (delims);
 	if ((tokens != null) && (tokens.length > 0)) {
-	  e = new Entry (Integer.parseInt (tokens[1]),
-			 Integer.parseInt (tokens[0]));
-	  mEntries.add (e);
+	  e = new Entry (Integer.parseInt (tokens[1]),  //action
+			 Integer.parseInt (tokens[0]));  //term
+	  mEntries.add (e);  //加入linkedlist
 	} else {
 	  System.out.println ("Error parsing log line: " + line);
 	}	
@@ -91,7 +91,7 @@ public class RaftLog {
 	return -1;
       } else if ((prevIndex == -1) ||
 		 ((mEntries.get (prevIndex) != null) &&
-		  (mEntries.get (prevIndex).term == prevTerm))) {
+		  (mEntries.get (prevIndex).term == prevTerm))) {  //上一个term要一样才能insert
 	// Because we are inserting in the middle of our log, we
 	// will update our log by creating a temporary on-disk log
 	// with the new entries and then replacing the old on-disk
@@ -99,7 +99,7 @@ public class RaftLog {
 
 	// First, create an in-memory copy of the existing log up to
 	// the point where the new entries will be added
-	LinkedList<Entry> tmpEntries = new LinkedList<Entry> ();
+	LinkedList<Entry> tmpEntries = new LinkedList<Entry> ();  //拷贝之前的
 	for (int i=0; i<=prevIndex; i++) {
 	  Entry entry = mEntries.get (i);
 	  tmpEntries.add (entry);
@@ -109,7 +109,7 @@ public class RaftLog {
 	// on-disk logs
 	Path tmpLogPath = 
 	  FileSystems.getDefault ().
-	  getPath (mLogPath.toAbsolutePath ().toString () + ".tmp");
+	  getPath (mLogPath.toAbsolutePath ().toString () + ".tmp");  // 写到另一个文件
 	  
 	OutputStream out = 
 	  Files.newOutputStream (tmpLogPath, 
@@ -124,7 +124,7 @@ public class RaftLog {
 	}
 
 	// Add the new entries
-	for (Entry entry : entries) {
+	for (Entry entry : entries) {  //插入entry
 	  if (entry != null) {
 	    out.write (entry.toString ().getBytes ());
 	    out.write ('\n');
@@ -134,7 +134,7 @@ public class RaftLog {
 	out.close ();
 
 	// switch the in-memory and on-disk logs to the new versions
-	Files.move (tmpLogPath, 
+	Files.move (tmpLogPath,   //替换原有的log文件
 		    mLogPath, 
 		    StandardCopyOption.REPLACE_EXISTING,
 		    StandardCopyOption.ATOMIC_MOVE);
@@ -168,9 +168,9 @@ public class RaftLog {
   }
 
   // @return entry at passed-in index, null if none
-  public Entry getEntry (int index) {
+  public Entry getEntry (int index) {  
     if ((index > -1) && (index < mEntries.size())) {
-      return new Entry (mEntries.get (index));
+      return new Entry (mEntries.get (index));  //返回index上的副本
     }
     
     return null;
@@ -179,7 +179,7 @@ public class RaftLog {
   public String toString () {
     String toReturn = "{";
     for (Entry e: mEntries) {
-      toReturn += " (" + e + ") ";
+      toReturn += " (" + e + ") ";   //e.toString()
     }
     toReturn += "}";
     return toReturn;
@@ -188,7 +188,7 @@ public class RaftLog {
   private void init () {
   }
 
-  public static void main (String[] args) {
+  public static void main (String[] args) {  //for test
     if (args.length != 1) {
       System.out.println("usage: java edu.duke.raft.RaftLog <filename>");
       System.exit(1);
