@@ -1,15 +1,24 @@
 package edu.duke.raft;
 
+import java.util.Timer;
+
+
 public class FollowerMode extends RaftMode {
-  public void go () {
+	private Timer mTimer;
+	
+	public void go () {
     synchronized (mLock) {
-      int term = 0;
+      //int term = 0;
+      int term = mConfig.getCurrentTerm();
       System.out.println ("S" + 
 			  mID + 
 			  "." + 
 			  term + 
 			  ": switched to follower mode.");
+      //set a time to handle timeout
+      mTimer = this.scheduleTimer(HEARTBEAT_INTERVAL,mID);
     }
+      //got heartbeat or appendrequests
   }
   
   // @param candidate’s term
@@ -23,16 +32,21 @@ public class FollowerMode extends RaftMode {
 			  int lastLogIndex,
 			  int lastLogTerm) {   //知道candidate的信息，对比自己并且set response
     synchronized (mLock) {
+      
       int term = mConfig.getCurrentTerm ();
       int vote = term;
-      if (lastLogTerm>term || (lastLogTerm == term && lastLogTerm>=mLog.getLastIndex()))
+      if (candidateTerm<=term || mConfig.getVotedFor() != 0)  //already voted
       {
-        //vote
+    	  return vote;
       }
-      else
+      else if (lastLogTerm>term || (lastLogTerm == term && lastLogIndex>=mLog.getLastIndex()))
       {
-        //say no
+        //say yes
+    	vote = 0;
+    	mConfig.setCurrentTerm(candidateTerm, candidateID); //set current term and voted for
+    	return 0;
       }
+      //default say no 
       return vote;
     }
   }
@@ -53,8 +67,35 @@ public class FollowerMode extends RaftMode {
 			    Entry[] entries,
 			    int leaderCommit) {
     synchronized (mLock) {
+    
+    	//cancel local timer
+    	mTimer.cancel();
+
       int term = mConfig.getCurrentTerm ();
       int result = term;
+      if (entries == null)  //is heartbeat, no action
+      {
+    	  mTimer = this.scheduleTimer(HEARTBEAT_INTERVAL,mID);
+    	  return term;
+      }
+      
+      if (prevLogIndex == -1)  //should append from start
+      {
+    	  mLog.insert(entries, -1, prevLogTerm);
+      }
+      else
+      {
+    	  Entry testEntry = mLog.getEntry(prevLogIndex);
+          if (testEntry != null && prevLogTerm == testEntry.term)
+          {
+        	  //append, say yes and setCurrentTerm
+        	  mLog.insert(entries, prevLogIndex, prevLogTerm);
+        	  result = 0;
+        	  mConfig.setCurrentTerm(leaderTerm, leaderID);
+          }
+      }
+      //set a new timer
+      mTimer = this.scheduleTimer(HEARTBEAT_INTERVAL,mID);
       return result;
     }
   }  
@@ -62,7 +103,9 @@ public class FollowerMode extends RaftMode {
   // @param id of the timer that timed out
   public void handleTimeout (int timerID) {
     synchronized (mLock) {
+		Thread.sleep((long)Math.random()*1000);  //prepare to become a candidate
+    	RaftMode mode = new CandidateMode();
+    	RaftServerImpl.setMode (mode);
     }
   }
 }
-
