@@ -16,11 +16,11 @@ public abstract class RaftMode {
   // index of highest entry known to be committed
   protected static int mCommitIndex;
   // index of highest entry applied to state machine
-  protected static int mLastApplied;   //??
+  protected static int mLastApplied;   
   // lock protecting access to RaftResponses
   protected static Object mLock;
   // port for rmiregistry on localhost
-  protected static int mRmiPort;  //StartServer.jave中的url中的port
+  protected static int mRmiPort;  //StartServer.jave涓殑url涓殑port
   // numeric id of this server
   protected static int mID;
 
@@ -96,17 +96,17 @@ public abstract class RaftMode {
 					  final int candidateTerm,
 					  final int candidateID,
 					  final int lastLogIndex,
-					  final int lastLogTerm) {//这里的serverID是投票者的ID，candidate是发起投票的serverID
-    new Thread () {  //建立vote线程完成
+					  final int lastLogTerm) {//杩欓噷鐨剆erverID鏄姇绁ㄨ�呯殑ID锛宑andidate鏄彂璧锋姇绁ㄧ殑serverID
+    new Thread () {  //寤虹珛vote绾跨▼瀹屾垚
       public void run () {	
 	String url = getRmiUrl (serverID);  
 	try {
-	  RaftServer server = (RaftServer) Naming.lookup(url);  //找到对应的server（voter）
-	  int response = server.requestVote (candidateTerm, //得到vote结果
+	  RaftServer server = (RaftServer) Naming.lookup(url);  //鎵惧埌瀵瑰簲鐨剆erver锛坴oter锛�
+	  int response = server.requestVote (candidateTerm, //寰楀埌vote缁撴灉
 					     candidateID,
 					     lastLogIndex,
 					     lastLogTerm);
-	  synchronized (RaftMode.mLock) {   //保证记录vote结果的过程是atomic的
+	  synchronized (RaftMode.mLock) {   //淇濊瘉璁板綍vote缁撴灉鐨勮繃绋嬫槸atomic鐨�
 	    RaftResponses.setVote (serverID, 
 				   response, 
 				   candidateTerm);
@@ -138,7 +138,7 @@ public abstract class RaftMode {
 					    final int prevLogIndex,
 					    final int prevLogTerm,
 					    final Entry[] entries,
-					    final int leaderCommit) {  //将leader的entryappend到server上
+					    final int leaderCommit) {  //灏唋eader鐨別ntryappend鍒皊erver涓�
     new Thread () {
       public void run () {	
 	String url = getRmiUrl (serverID);
@@ -149,9 +149,9 @@ public abstract class RaftMode {
 					       prevLogIndex,
 					       prevLogTerm,
 					       entries,
-					       leaderCommit);  // 得到server的决定
+					       leaderCommit);  // 寰楀埌server鐨勫喅瀹�
 	  synchronized (RaftMode.mLock) {
-	    RaftResponses.setAppendResponse (serverID, //保证写入过程的atomic
+	    RaftResponses.setAppendResponse (serverID, //淇濊瘉鍐欏叆杩囩▼鐨刟tomic
 					     response, 
 					     leaderTerm);
 	  }
@@ -178,10 +178,10 @@ public abstract class RaftMode {
   // called to activate the mode
   abstract public void go ();
 
-  // @param candidate’s term
+  // @param candidate鈥檚 term
   // @param candidate requesting vote
-  // @param index of candidate’s last log entry
-  // @param term of candidate’s last log entry
+  // @param index of candidate鈥檚 last log entry
+  // @param term of candidate鈥檚 last log entry
   // @return 0, if server votes for candidate; otherwise, server's
   // current term
   abstract public int requestVote (int candidateTerm,
@@ -189,7 +189,7 @@ public abstract class RaftMode {
 				   int lastLogIndex,
 				   int lastLogTerm);
 
-  // @param leader’s term
+  // @param leader鈥檚 term
   // @param current leader
   // @param index of log entry before entries to append
   // @param term of log entry before entries to append

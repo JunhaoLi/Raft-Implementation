@@ -18,7 +18,6 @@ public class FollowerMode extends RaftMode {
       //set a time to handle timeout
      ELECTION_TIMEOUT =  (int)(((double)ELECTION_TIMEOUT_MAX-(double)ELECTION_TIMEOUT_MIN)*Math.random())+ELECTION_TIMEOUT_MIN; 
      mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID);
-      
     }
       //got heartbeat or appendrequests
   }
