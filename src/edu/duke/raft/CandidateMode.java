@@ -18,11 +18,12 @@ public class CandidateMode extends RaftMode {
 			  term + 
 			  ": switched to candidate mode.");
       ELECTION_TIMEOUT = (int)(((double)ELECTION_TIMEOUT_MAX-(double)ELECTION_TIMEOUT_MIN)*Math.random())+ELECTION_TIMEOUT_MIN; 
+      //each server has a RaftResponses class
       mConfig.setCurrentTerm(term, mID); //prepare to vote ifself
       RaftResponses.setTerm(term);  //guarantee all later action can be accepted by RaftResponses
       RaftResponses.clearAppendResponses(term);
       RaftResponses.clearVotes(term);
-      //part 2应该改成commitIndex和对应的term
+      //!!part 2应该改成commitIndex和对应的term
       mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID);
       //send request to each follower
       int num = mConfig.getNumServers();
@@ -40,7 +41,7 @@ public class CandidateMode extends RaftMode {
       int [] votes = RaftResponses.getVotes(term);
       for (int i = 0; i<votes.length;i++)
       {
-    	 if (votes[i]>=term)  //back to follower
+    	 if (votes[i]>=term)  //have higher term, back to follower
     	 {
     		 RaftMode mode = new FollowerMode();
     		 mode.go();
@@ -67,11 +68,14 @@ public class CandidateMode extends RaftMode {
 			  int lastLogTerm) {
     synchronized (mLock) {
     	int term = mConfig.getCurrentTerm();
-    	if (candidateTerm>=term)  //quit my election, and do not vote
+    	if (candidateTerm>=term)  //quit my election, update my term
     	{
-    		mConfig.setCurrentTerm(candidateTerm, candidateID);
-    		term = 0;  //say yes	
+    		mConfig.setCurrentTerm(candidateTerm, candidateID);  //vote for higher term
+    		term = 0;//say yes
     	}
+    	//default say no
+    	// 理论上先成为的leader的server会在这个server的这一次选举完成前发出heartbeat
+    	//就算这个server也成为了leader，也会收到更高的term而变回follower
     	return term;
     }
   }
@@ -94,8 +98,17 @@ public class CandidateMode extends RaftMode {
     synchronized (mLock) {
       int term = mConfig.getCurrentTerm ();
       int result = term;
-      //do not consider the case when client send requestion to candidate
-      //always say no
+      //receive higher heartbeat, back to follower mode
+      if (entries == null && leaderTerm>=term)
+      {
+    	  RaftMode mode = new FollowerMode();
+    	  mode.go();
+      }
+      //client send request to me, say no or append?
+      if (leaderID == mID)
+      {
+    	  //how???
+      }
       return result;
     }
   }

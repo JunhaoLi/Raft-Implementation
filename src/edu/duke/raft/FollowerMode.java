@@ -37,17 +37,18 @@ public class FollowerMode extends RaftMode {
       int term = mConfig.getCurrentTerm ();
       int vote = term;
       
-      if (candidateTerm<=term || mConfig.getVotedFor() != 0)
+      if (candidateTerm<=term)  
       {
     	  return vote;
-      }
+      } 
       //candidateTerm>term
-      
       if (lastLogTerm>term || (lastLogTerm == term && lastLogIndex>=mLog.getLastIndex()))
       {
         //say yes, update local term
     	vote = 0;
     	mConfig.setCurrentTerm(candidateTerm, candidateID); //set current term and voted for
+    	//possible update
+    	 mLastApplied = Math.max(mLastApplied, mCommitIndex);
       }
       //default say no 
       mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID); 
@@ -78,15 +79,20 @@ public class FollowerMode extends RaftMode {
 
       if (entries == null)  //is heartbeat, no append, just update term and lastApplied
       {
-    	  mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID);
     	  mConfig.setCurrentTerm(Math.max(term, prevLogTerm), 0);
     	  mLastApplied = Math.max(mLastApplied, mCommitIndex);
+    	  mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID);
     	  return term;
+      }
+      //client send request to me, should forward to leader
+      if (leaderID == mID)
+      {
+    	  //how???
       }
       //true append
       if (prevLogIndex == -1)  //should append from start
       {
-    	  mLog.append(entries);
+    	  mLog.insert(entries, -1, prevLogTerm);
     	  result =0;
     	  if (leaderCommit>mCommitIndex)  //only effecive when we append something
           {
@@ -107,9 +113,8 @@ public class FollowerMode extends RaftMode {
               }
           }  
       }
-      mConfig.setCurrentTerm(Math.max(term, prevLogTerm), 0);
+     mConfig.setCurrentTerm(Math.max(term, prevLogTerm), 0);
      mLastApplied = Math.max(mLastApplied, mCommitIndex);
-      
       //set a new timer
       mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID); 
       return result;
