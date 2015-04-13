@@ -1,7 +1,13 @@
 package edu.duke.raft;
 
+import java.util.Timer;
+
+
 public class FollowerMode extends RaftMode {
-  public void go () {
+	private Timer mTimer;
+	private int 	ELECTION_TIMEOUT;
+	
+	public void go () {
     synchronized (mLock) {
       int term = 0;
       System.out.println ("S" + 
@@ -9,7 +15,12 @@ public class FollowerMode extends RaftMode {
 			  "." + 
 			  term + 
 			  ": switched to follower mode.");
+      //set a time to handle timeout
+     ELECTION_TIMEOUT =  (int)(((double)ELECTION_TIMEOUT_MAX-(double)ELECTION_TIMEOUT_MIN)*Math.random())+ELECTION_TIMEOUT_MIN; 
+     mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID);
+      
     }
+      //got heartbeat or appendrequests
   }
   
   // @param candidate’s term
@@ -21,18 +32,26 @@ public class FollowerMode extends RaftMode {
   public int requestVote (int candidateTerm,
 			  int candidateID,
 			  int lastLogIndex,
-			  int lastLogTerm) {   //知道candidate的信息，对比自己并且set response
+			  int lastLogTerm) {
     synchronized (mLock) {
+      mTimer.cancel();
       int term = mConfig.getCurrentTerm ();
       int vote = term;
-      if (lastLogTerm>term || (lastLogTerm == term && lastLogTerm>=mLog.getLastIndex()))
+      
+      if (candidateTerm<=term || mConfig.getVotedFor() != 0)
       {
-        //vote
+    	  return vote;
       }
-      else
+      //candidateTerm>term
+      
+      if (lastLogTerm>term || (lastLogTerm == term && lastLogIndex>=mLog.getLastIndex()))
       {
-        //say no
+        //say yes, update local term
+    	vote = 0;
+    	mConfig.setCurrentTerm(candidateTerm, candidateID); //set current term and voted for
       }
+      //default say no 
+      mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID); 
       return vote;
     }
   }
@@ -53,8 +72,47 @@ public class FollowerMode extends RaftMode {
 			    Entry[] entries,
 			    int leaderCommit) {
     synchronized (mLock) {
+      //cancel local timer
+      mTimer.cancel();
       int term = mConfig.getCurrentTerm ();
       int result = term;
+
+      if (entries == null)  //is heartbeat, no append, just update term and lastApplied
+      {
+    	  mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID);
+    	  mConfig.setCurrentTerm(Math.max(term, prevLogTerm), 0);
+    	  mLastApplied = Math.max(mLastApplied, mCommitIndex);
+    	  return term;
+      }
+      //true append
+      if (prevLogIndex == -1)  //should append from start
+      {
+    	  mLog.append(entries);
+    	  result =0;
+    	  if (leaderCommit>mCommitIndex)  //only effecive when we append something
+          {
+        	  mCommitIndex = Math.min(leaderCommit, mLog.getLastIndex());
+          }
+      }
+      else
+      {
+    	  Entry testEntry = mLog.getEntry(prevLogIndex);
+          if (testEntry != null &&testEntry.term == prevLogTerm)
+          {
+        	  //append, say yes and setCurrentTerm
+        	  mLog.insert(entries, prevLogIndex, prevLogTerm);
+        	  result = 0;
+        	  if (leaderCommit>mCommitIndex)
+              {
+            	  mCommitIndex = Math.min(leaderCommit, mLog.getLastIndex());
+              }
+          }  
+      }
+      mConfig.setCurrentTerm(Math.max(term, prevLogTerm), 0);
+     mLastApplied = Math.max(mLastApplied, mCommitIndex);
+      
+      //set a new timer
+      mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID); 
       return result;
     }
   }  
@@ -62,7 +120,8 @@ public class FollowerMode extends RaftMode {
   // @param id of the timer that timed out
   public void handleTimeout (int timerID) {
     synchronized (mLock) {
+    	RaftMode mode = new CandidateMode();
+    	RaftServerImpl.setMode (mode);
     }
   }
 }
-

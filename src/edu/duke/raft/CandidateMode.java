@@ -1,14 +1,28 @@
 package edu.duke.raft;
 
+import java.util.Timer;
+
 public class CandidateMode extends RaftMode {
-  public void go () {
+	
+	//generate a randomize timeout in the range 
+	private final static int 	ELECTION_ROUND =(int)(((double)ELECTION_TIMEOUT_MAX-(double)ELECTION_TIMEOUT_MIN)*Math.random())+ELECTION_TIMEOUT_MIN; 
+	private Timer mTimer;
+	
+    public void go () {
     synchronized (mLock) {
-      int term = 0;      
+      //int term = 0;   
+      int term = mConfig.getCurrentTerm()+1;
       System.out.println ("S" + 
 			  mID + 
 			  "." + 
 			  term + 
 			  ": switched to candidate mode.");
+      mConfig.setCurrentTerm(term, mID);
+      RaftResponses.setTerm(term);
+      RaftResponses.clearAppendResponses(term);
+      RaftResponses.clearVotes(term);
+      //part 2应该改成commitIndex和对应的term
+      this.requestVote(term, mID, mLog.getLastIndex(), mLog.getLastTerm());
     }
   }
 
@@ -24,6 +38,19 @@ public class CandidateMode extends RaftMode {
 			  int lastLogTerm) {
     synchronized (mLock) {
       int term = mConfig.getCurrentTerm ();
+      int num = mConfig.getNumServers();
+      int lastIndex = mLog.getLastIndex();
+      int lastTerm = mLog.getLastTerm();
+      for (int i = 1; i<=num;i++)
+      {
+    	  if (i == mID)
+    	  {
+    		  continue;
+    	  }
+    	  this.remoteRequestVote(i, term, mID, lastIndex, lastTerm);
+      }
+      //start timer
+      mTimer = this.scheduleTimer(ELECTION_ROUND, mID);
       int result = term;
       return result;
     }
@@ -47,6 +74,8 @@ public class CandidateMode extends RaftMode {
     synchronized (mLock) {
       int term = mConfig.getCurrentTerm ();
       int result = term;
+      //do not consider the case when client send requestion to candidate
+      //always say no
       return result;
     }
   }
@@ -54,6 +83,31 @@ public class CandidateMode extends RaftMode {
   // @param id of the timer that timed out
   public void handleTimeout (int timerID) {
     synchronized (mLock) {
+    	mTimer.cancel();
+    	//check response
+    	int[] vResponses = RaftResponses.getVotes(mConfig.getCurrentTerm());
+    	int yes = 0;
+    	for(int i = 0; i<vResponses.length;i++)
+    	{
+    		yes += (vResponses[i]==0?1:0);
+    	}
+    	int majority = (mConfig.getNumServers()+1)/2;
+    	if (yes>=majority)
+    	{
+    		//switch to leader
+    	 	RaftMode mode = new LeaderMode();
+        	mode.go();
+    	}
+    	else
+    	{
+        	//switch back to follower mode
+        	int term = mConfig.getCurrentTerm()-1;
+        	mConfig.setCurrentTerm(term, 0);  //0 means no vote history
+        	RaftResponses.clearAppendResponses(term);
+        	RaftResponses.clearVotes(term);
+        	RaftMode mode = new FollowerMode();
+        	mode.go();
+    	}
     }
   }
 }
