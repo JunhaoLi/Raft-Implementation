@@ -43,6 +43,7 @@ public class CandidateMode extends RaftMode {
       {
     	 if (votes[i]>=term)  //have higher term, back to follower
     	 {
+    		 mTimer.cancel();
     		 RaftMode mode = new FollowerMode();
     		 mode.go();
     	 }
@@ -50,6 +51,7 @@ public class CandidateMode extends RaftMode {
       }
       if (count>=num/2+1)  //get majority
       {
+    	  mTimer.cancel();
     	 RaftMode mode = new LeaderMode();
  		 mode.go();
       }
@@ -116,6 +118,25 @@ public class CandidateMode extends RaftMode {
   // @param id of the timer that timed out
   public void handleTimeout (int timerID) {
     synchronized (mLock) {
+    	//check vote first
+        int count = 0;
+        int term = mConfig.getCurrentTerm();
+        int num = mConfig.getNumServers();
+        int [] votes = RaftResponses.getVotes(term);
+        for (int i = 0; i<votes.length;i++)
+        {
+      	 if (votes[i]>=term)  //have higher term, back to follower
+      	 {
+      		 RaftMode mode = new FollowerMode();
+      		 mode.go();
+      	 }
+      	 count += (votes[i] == 0?1:0);
+        }
+        if (count>=num/2+1)  //get majority
+        {
+      	 RaftMode mode = new LeaderMode();
+   		 mode.go();
+        }
     	//start new election
     	this.go();
     }
