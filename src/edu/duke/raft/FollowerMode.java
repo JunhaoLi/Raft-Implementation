@@ -87,7 +87,12 @@ public class FollowerMode extends RaftMode {
       //client send request to me, should forward to leader
       if (leaderID == mID)
       {
-    	  //how???
+    	  //try each server
+    	  int num = mConfig.getNumServers();
+    	  for (int i = 1; i<=num;i++)
+    	  {
+    		  remoteAppendEntries(0, i,0, 0, 0, entries, 0);  //forward to leader
+    	  }
       }
       //true append
       if (prevLogIndex == -1)  //should append from start

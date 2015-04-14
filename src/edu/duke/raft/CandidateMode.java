@@ -39,13 +39,13 @@ public class CandidateMode extends RaftMode {
       //check vote
       int count = 0;
       int [] votes = RaftResponses.getVotes(term);
-      for (int i = 0; i<votes.length;i++)
+      for (int i = 1; i<=num;i++)
       {
     	 if (votes[i]>=term)  //have higher term, back to follower
     	 {
     		 mTimer.cancel();
     		 RaftMode mode = new FollowerMode();
-    		 mode.go();
+    		 RaftServerImpl.setMode(mode);
     	 }
     	 count += (votes[i] == 0?1:0);
       }
@@ -53,7 +53,7 @@ public class CandidateMode extends RaftMode {
       {
     	  mTimer.cancel();
     	 RaftMode mode = new LeaderMode();
- 		 mode.go();
+    	 RaftServerImpl.setMode(mode);
       }
     }
   }
@@ -101,10 +101,11 @@ public class CandidateMode extends RaftMode {
       int term = mConfig.getCurrentTerm ();
       int result = term;
       //receive higher heartbeat, back to follower mode
-      if (entries == null && leaderTerm>=term)
+      if (leaderTerm>=term)
       {
+    	  mTimer.cancel();
     	  RaftMode mode = new FollowerMode();
-    	  mode.go();
+    	  RaftServerImpl.setMode(mode);
       }
       //client send request to me, say no or append?
       if (leaderID == mID)
@@ -127,15 +128,15 @@ public class CandidateMode extends RaftMode {
         {
       	 if (votes[i]>=term)  //have higher term, back to follower
       	 {
-      		 RaftMode mode = new FollowerMode();
-      		 mode.go();
+      		RaftMode mode = new FollowerMode();
+      		RaftServerImpl.setMode(mode);
       	 }
       	 count += (votes[i] == 0?1:0);
         }
         if (count>=num/2+1)  //get majority
         {
       	 RaftMode mode = new LeaderMode();
-   		 mode.go();
+      	 RaftServerImpl.setMode(mode);
         }
     	//start new election
     	this.go();

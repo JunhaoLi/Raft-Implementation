@@ -76,7 +76,7 @@ public class LeaderMode extends RaftMode {
     	  //总会再次开始election，而最终过时的leader都会以follower参与投票
     	  heartTimer.cancel();
     	  RaftMode  mode = new FollowerMode();
-    	  mode.go();
+    	  RaftServerImpl.setMode(mode);
       }
       appendTimer =scheduleTimer (HEARTBEAT_INTERVAL, mID+1); 
       return vote; //always say no
@@ -113,7 +113,7 @@ public class LeaderMode extends RaftMode {
     		{
     			heartTimer.cancel();
     			RaftMode mode = new FollowerMode();
-    			mode.go();  //next time i will append contents as a follower
+    			RaftServerImpl.setMode(mode);  //next time i will append contents as a follower
     		}
     		else //"leader" is stale
     		{
