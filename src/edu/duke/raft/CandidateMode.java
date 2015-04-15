@@ -70,14 +70,13 @@ public class CandidateMode extends RaftMode {
 			  int lastLogTerm) {
     synchronized (mLock) {
     	int term = mConfig.getCurrentTerm();
-    	if (candidateTerm>=term)  //quit my election, update my term
+    	if (candidateTerm>term)  //quit my election, update my term
     	{
-    		mConfig.setCurrentTerm(candidateTerm, candidateID);  //vote for higher term
-    		term = 0;//say yes
+    		mConfig.setCurrentTerm(candidateTerm, 0);  //vote for higher term
+    		mTimer.cancel();
+    		RaftMode mode = new FollowerMode();
+    		RaftServerImpl.setMode(mode);
     	}
-    	//default say no
-    	// 理论上先成为的leader的server会在这个server的这一次选举完成前发出heartbeat
-    	//就算这个server也成为了leader，也会收到更高的term而变回follower
     	return term;
     }
   }
@@ -107,11 +106,11 @@ public class CandidateMode extends RaftMode {
     	  RaftMode mode = new FollowerMode();
     	  RaftServerImpl.setMode(mode);
       }
-      //client send request to me, say no or append?
+      /*//client send request to me, say no or append?
       if (leaderID == mID)
       {
     	  //how???
-      }
+      }*/
       return result;
     }
   }
@@ -124,7 +123,7 @@ public class CandidateMode extends RaftMode {
         int term = mConfig.getCurrentTerm();
         int num = mConfig.getNumServers();
         int [] votes = RaftResponses.getVotes(term);
-        for (int i = 0; i<votes.length;i++)
+        for (int i = 1; i<=num;i++)
         {
       	 if (votes[i]>=term)  //have higher term, back to follower
       	 {
@@ -133,13 +132,8 @@ public class CandidateMode extends RaftMode {
       	 }
       	 count += (votes[i] == 0?1:0);
         }
-        if (count>=num/2+1)  //get majority
-        {
-      	 RaftMode mode = new LeaderMode();
-      	 RaftServerImpl.setMode(mode);
-        }
-    	//start new election
-    	this.go();
+        RaftMode mode = (count>=num/2+1?new LeaderMode():new CandidateMode());
+        RaftServerImpl.setMode(mode);
     }
   }
 }

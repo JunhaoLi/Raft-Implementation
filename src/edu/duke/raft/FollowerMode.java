@@ -9,7 +9,7 @@ public class FollowerMode extends RaftMode {
 	
 	public void go () {
     synchronized (mLock) {
-      int term = 0;
+      int term = mConfig.getCurrentTerm();
       System.out.println ("S" + 
 			  mID + 
 			  "." + 
@@ -17,9 +17,14 @@ public class FollowerMode extends RaftMode {
 			  ": switched to follower mode.");
       //set a time to handle timeout
      ELECTION_TIMEOUT =  (int)(((double)ELECTION_TIMEOUT_MAX-(double)ELECTION_TIMEOUT_MIN)*Math.random())+ELECTION_TIMEOUT_MIN; 
+     //clear status
+     mConfig.setCurrentTerm(term, 0);
+     RaftResponses.setTerm(term);
+     RaftResponses.clearVotes(term);
+     RaftResponses.clearAppendResponses(term);
+     
      mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID);
     }
-      //got heartbeat or appendrequests
   }
   
   // @param candidate’s term
@@ -36,20 +41,23 @@ public class FollowerMode extends RaftMode {
       mTimer.cancel();
       int term = mConfig.getCurrentTerm ();
       int vote = term;
+      int voteFor = mConfig.getVotedFor();
+      int lastIndex = mLog.getLastIndex();
+      int lastTerm = mLog.getLastTerm();
       
       if (candidateTerm<=term)  
       {
+    	  mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID); 
     	  return vote;
       } 
       //candidateTerm>term
-      if (lastLogTerm>term || (lastLogTerm == term && lastLogIndex>=mLog.getLastIndex()))
+      //already voted in current term
+      if (lastLogTerm>lastTerm || (lastLogTerm == lastTerm && lastLogIndex>=lastIndex))
       {
         //say yes, update local term
     	vote = 0;
-    	mConfig.setCurrentTerm(candidateTerm, candidateID); //set current term and voted for
-    	//possible update
-    	 mLastApplied = Math.max(mLastApplied, mCommitIndex);
       }
+  	 mConfig.setCurrentTerm(candidateTerm, candidateID); //set current term and voted for
       //default say no 
       mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID); 
       return vote;
@@ -77,52 +85,66 @@ public class FollowerMode extends RaftMode {
       int term = mConfig.getCurrentTerm ();
       int result = term;
 
+      if (term>leaderTerm)  //request from stale leader
+      {
+        //tell him to quit
+        mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID); 
+        return term;
+      }
+	  mConfig.setCurrentTerm(Math.max(term, prevLogTerm), 0);
       if (entries == null)  //is heartbeat, no append, just update term and lastApplied
       {
-    	  mConfig.setCurrentTerm(Math.max(term, prevLogTerm), 0);
     	  mLastApplied = Math.max(mLastApplied, mCommitIndex);
     	  mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID);
     	  return term;
       }
-      //client send request to me, should forward to leader
-      if (leaderID == mID)
-      {
-    	  //try each server
-    	  int num = mConfig.getNumServers();
-    	  for (int i = 1; i<=num;i++)
-    	  {
-    		  remoteAppendEntries(0, i,0, 0, 0, entries, 0);  //forward to leader
-    	  }
-      }
-      //true append
-      if (prevLogIndex == -1)  //should append from start
-      {
-    	  mLog.insert(entries, -1, prevLogTerm);
-    	  result =0;
-    	  if (leaderCommit>mCommitIndex)  //only effecive when we append something
-          {
-        	  mCommitIndex = Math.min(leaderCommit, mLog.getLastIndex());
-          }
-      }
       else
       {
-    	  Entry testEntry = mLog.getEntry(prevLogIndex);
-          if (testEntry != null &&testEntry.term == prevLogTerm)
+    	  //client send request to me, should forward to leader
+          if (leaderID == mID)
           {
-        	  //append, say yes and setCurrentTerm
-        	  mLog.insert(entries, prevLogIndex, prevLogTerm);
-        	  result = 0;
-        	  if (leaderCommit>mCommitIndex)
+        	  //try each server
+        	  int num = mConfig.getNumServers();
+        	  for (int i = 1; i<=num;i++)
+        	  {
+        		  if (mID != i)
+        		  {
+            		  remoteAppendEntries(0, i,0, 0, 0, entries, 0);  //forward to leader
+        		  }
+        	  }
+          }
+          else  //true append
+          {
+        	  mConfig.setCurrentTerm(Math.max(term, prevLogTerm), 0);
+        	  if (prevLogIndex == -1)  //should append from start
               {
-            	  mCommitIndex = Math.min(leaderCommit, mLog.getLastIndex());
+            	  mLog.insert(entries, -1, prevLogTerm);
+            	  result =0;
+            	  if (leaderCommit>mCommitIndex)  //only effecive when we append something
+                  {
+                	  mCommitIndex = Math.min(leaderCommit, mLog.getLastIndex());
+                	  mLastApplied = Math.max(mLastApplied, mCommitIndex);
+                  }
               }
-          }  
-      }
-     mConfig.setCurrentTerm(Math.max(term, prevLogTerm), 0);
-     mLastApplied = Math.max(mLastApplied, mCommitIndex);
-      //set a new timer
-      mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID); 
-      return result;
+              else
+              {
+            	  Entry testEntry = mLog.getEntry(prevLogIndex);
+                  if (testEntry != null &&testEntry.term == prevLogTerm)
+                  {
+                	  //append, say yes and setCurrentTerm
+                	  mLog.insert(entries, prevLogIndex, prevLogTerm);
+                	  result = 0;
+                	  if (leaderCommit>mCommitIndex)
+                      {
+                    	  mCommitIndex = Math.min(leaderCommit, mLog.getLastIndex());
+                    	  mLastApplied = Math.max(mLastApplied, mCommitIndex);
+                      }
+                  }  
+              }
+        	  mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID); 
+        	  return result; 
+          }
+      }  
     }
   }  
 
