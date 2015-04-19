@@ -79,6 +79,8 @@ public class LeaderMode extends RaftMode {
       }
       else  // I am stale leader, go back to follower
       {
+    	  //就算本次不投票导致那个leader得不到多数超时
+    	  //总会再次开始election，而最终过时的leader都会以follower参与投票
     	  heartTimer.cancel();
     	  RaftMode  mode = new FollowerMode();
     	  RaftServerImpl.setMode(mode);

@@ -23,7 +23,7 @@ public class CandidateMode extends RaftMode {
       RaftResponses.setTerm(term);  //guarantee all later action can be accepted by RaftResponses
       RaftResponses.clearAppendResponses(term);
       RaftResponses.clearVotes(term);
-      //System.out.println(mID+" before mTimer");
+      System.out.println(mID+" before mTimer");
       mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID);
       //send request to each follower
       int num = mConfig.getNumServers();
@@ -39,7 +39,7 @@ public class CandidateMode extends RaftMode {
       //check vote
       int count = 0;
       int [] votes = RaftResponses.getVotes(term);
-      //System.out.println(mID+" ready to count");
+      System.out.println(mID+" ready to count");
       for (int i = 1; i<=num;i++)
       {
     	 if (votes[i]>=term)  //have higher term, back to follower
@@ -50,7 +50,7 @@ public class CandidateMode extends RaftMode {
     	 }
     	 count += (votes[i] == 0?1:0);
       }
-      System.out.println("server "+mID+" get "+count+" vote");
+      System.out.println(mID+" get "+count+" yes vote");
       if (count>=num/2+1)  //get majority
       {
     	 mTimer.cancel();

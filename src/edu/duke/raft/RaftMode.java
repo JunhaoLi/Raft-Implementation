@@ -16,11 +16,11 @@ public abstract class RaftMode {
   // index of highest entry known to be committed
   protected static int mCommitIndex;
   // index of highest entry applied to state machine
-  protected static int mLastApplied;   
+  protected static int mLastApplied;
   // lock protecting access to RaftResponses
   protected static Object mLock;
   // port for rmiregistry on localhost
-  protected static int mRmiPort;  //StartServer.jave涓殑url涓殑port
+  protected static int mRmiPort;
   // numeric id of this server
   protected static int mID;
 
@@ -61,7 +61,7 @@ public abstract class RaftMode {
   protected final Timer scheduleTimer (long millis,
 				       final int timerID) {
     Timer timer = new Timer (false);
-    TimerTask task = new TimerTask () {   //TimerTask implements Runnable--void run()
+    TimerTask task = new TimerTask () {
 	public void run () {
 	  RaftMode.this.handleTimeout (timerID);
 	}
@@ -92,21 +92,21 @@ public abstract class RaftMode {
   
   // called to make request vote RPC on another server
   // results will be stored in RaftResponses
-  protected final void remoteRequestVote (final int serverID,  
+  protected final void remoteRequestVote (final int serverID,
 					  final int candidateTerm,
 					  final int candidateID,
 					  final int lastLogIndex,
-					  final int lastLogTerm) {//杩欓噷鐨剆erverID鏄姇绁ㄨ�呯殑ID锛宑andidate鏄彂璧锋姇绁ㄧ殑serverID
-    new Thread () {  //寤虹珛vote绾跨▼瀹屾垚
+					  final int lastLogTerm) {
+    new Thread () {
       public void run () {	
-	String url = getRmiUrl (serverID);  
+	String url = getRmiUrl (serverID);
 	try {
-	  RaftServer server = (RaftServer) Naming.lookup(url);  //鎵惧埌瀵瑰簲鐨剆erver锛坴oter锛�
-	  int response = server.requestVote (candidateTerm, //寰楀埌vote缁撴灉
+	  RaftServer server = (RaftServer) Naming.lookup(url);
+	  int response = server.requestVote (candidateTerm,
 					     candidateID,
 					     lastLogIndex,
 					     lastLogTerm);
-	  synchronized (RaftMode.mLock) {   //淇濊瘉璁板綍vote缁撴灉鐨勮繃绋嬫槸atomic鐨�
+	  synchronized (RaftMode.mLock) {
 	    RaftResponses.setVote (serverID, 
 				   response, 
 				   candidateTerm);
@@ -138,7 +138,7 @@ public abstract class RaftMode {
 					    final int prevLogIndex,
 					    final int prevLogTerm,
 					    final Entry[] entries,
-					    final int leaderCommit) {  //灏唋eader鐨別ntryappend鍒皊erver涓�
+					    final int leaderCommit) {
     new Thread () {
       public void run () {	
 	String url = getRmiUrl (serverID);
@@ -149,9 +149,9 @@ public abstract class RaftMode {
 					       prevLogIndex,
 					       prevLogTerm,
 					       entries,
-					       leaderCommit);  // 寰楀埌server鐨勫喅瀹�
+					       leaderCommit);
 	  synchronized (RaftMode.mLock) {
-	    RaftResponses.setAppendResponse (serverID, //淇濊瘉鍐欏叆杩囩▼鐨刟tomic
+	    RaftResponses.setAppendResponse (serverID, 
 					     response, 
 					     leaderTerm);
 	  }
@@ -178,10 +178,10 @@ public abstract class RaftMode {
   // called to activate the mode
   abstract public void go ();
 
-  // @param candidate鈥檚 term
+  // @param candidate’s term
   // @param candidate requesting vote
-  // @param index of candidate鈥檚 last log entry
-  // @param term of candidate鈥檚 last log entry
+  // @param index of candidate’s last log entry
+  // @param term of candidate’s last log entry
   // @return 0, if server votes for candidate; otherwise, server's
   // current term
   abstract public int requestVote (int candidateTerm,
@@ -189,7 +189,7 @@ public abstract class RaftMode {
 				   int lastLogIndex,
 				   int lastLogTerm);
 
-  // @param leader鈥檚 term
+  // @param leader’s term
   // @param current leader
   // @param index of log entry before entries to append
   // @param term of log entry before entries to append

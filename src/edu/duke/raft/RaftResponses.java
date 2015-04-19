@@ -12,9 +12,9 @@ package edu.duke.raft;
 
 public class RaftResponses {
 
-  private static int[] mAppendResponses;  //记录了各个server对于特定append log的请求的态度
-  private static int mTerm;  //记录当前term
-  private static int[] mVotes;  //记录了各个server对于一次vote的态度
+  private static int[] mAppendResponses;
+  private static int mTerm;
+  private static int[] mVotes;
 
   // @param size of the network
   // @param current term

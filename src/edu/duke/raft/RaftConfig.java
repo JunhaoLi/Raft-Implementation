@@ -21,7 +21,7 @@ public class RaftConfig {
   final private String NUM_SERVERS = "NUM_SERVERS";
 
   // @param file where config log is stored
-  public RaftConfig (String file) {  //构造函数，初始化config文件
+  public RaftConfig (String file) {
 
     try {
       mConfigPath = FileSystems.getDefault().getPath (file);
@@ -30,18 +30,18 @@ public class RaftConfig {
 					       StandardCharsets.US_ASCII);
       int lineNum=1;
       for (String line : lines) {
-	String[] tokens = line.split (delims);   //config 文件格式  field=value \n
+	String[] tokens = line.split (delims);
 	if ((tokens != null) && (tokens.length == 2)) {
 	  String field = tokens[0];
 	  String value = tokens[1];
-	  if (field.equals (CURRENT_TERM)) {  //第一次设置term，votefor和num_servers
+	  if (field.equals (CURRENT_TERM)) {
 	    mCurrentTerm = Integer.parseInt (value);
 	  } else if (field.equals (VOTED_FOR)) {
 	    mVotedFor = Integer.parseInt (value);
 	  } else if (field.equals (NUM_SERVERS)) {
 	    mNumServers = Integer.parseInt (value);
 	  } else {
-	  System.out.println ("Error parsing " +     //field无效值
+	  System.out.println ("Error parsing " + 
 			      file + 
 			      "." + 
 			      lineNum + 
@@ -49,7 +49,7 @@ public class RaftConfig {
 			      field);
 	  }
 	} else {
-	  System.out.println ("Error parsing " + //config行格式错误
+	  System.out.println ("Error parsing " + 
 			      file + 
 			      "." + 
 			      lineNum + 
@@ -67,10 +67,10 @@ public class RaftConfig {
   // be synchronously written term to the config log. otherwise the
   // current term will remain the same.
   // @param server voted for in the current term (0 if none).
-  public void setCurrentTerm (int term, int votedFor) {  //写
+  public void setCurrentTerm (int term, int votedFor) {
     if (term > mCurrentTerm ) {
       try {
-	OutputStream out = Files.newOutputStream (mConfigPath, //写入当前config文件
+	OutputStream out = Files.newOutputStream (mConfigPath, 
 						  StandardOpenOption.APPEND,
 						  StandardOpenOption.SYNC);
 	out.write (
@@ -85,7 +85,7 @@ public class RaftConfig {
 		   );
 	out.close ();
 	// voting record safely on disk now
-	mCurrentTerm = term;  //记录当前term与vote值
+	mCurrentTerm = term;
 	mVotedFor = votedFor;
       } catch (IOException e) {
 	System.out.println (e.getMessage ());
@@ -118,7 +118,7 @@ public class RaftConfig {
 		      mVotedFor);
   }
 
-  public static void main (String[] args) {  //第一个参数是config文件名
+  public static void main (String[] args) {
     if (args.length != 1) {
       System.out.println("usage: java edu.duke.raft.RaftConfig <filename>");
       System.exit(1);

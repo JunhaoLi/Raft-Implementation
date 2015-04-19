@@ -16,12 +16,12 @@ public class StartClient {
     
     String url = "rmi://localhost:" + port + "/S" + id;
     System.out.println ("Testing S" + id);
-    System.out.println ("Contacting server via rmiregistry " + url);  //和server一样
+    System.out.println ("Contacting server via rmiregistry " + url);
 
     try {
-      RaftServer server = (RaftServer) Naming.lookup(url);  //找到发送的server
-      server.requestVote (0, 0, 0, 0);  //requestVote (candidateTerm,candidateID,lastLogIndex,lastLogTerm);
-      server.appendEntries (0, 0, 0, 0, null, 0);  //加action
+      RaftServer server = (RaftServer) Naming.lookup(url);
+      server.requestVote (0, 0, 0, 0);
+      server.appendEntries (0, 0, 0, 0, null, 0);
     } catch (MalformedURLException me) {
       System.out.println (me.getMessage());
     } catch (RemoteException re) {

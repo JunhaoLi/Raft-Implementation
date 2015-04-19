@@ -44,11 +44,11 @@ public class FollowerMode extends RaftMode {
 	int voteFor = mConfig.getVotedFor();
 	int lastIndex = mLog.getLastIndex();
 	int lastTerm = mLog.getLastTerm();
-	//System.out.println("S"+mID+" in requestVote candidateTerm: "+candidateTerm+" ID:"+candidateID);
+	System.out.println("S"+mID+" in requestVote candidateTerm: "+candidateTerm+" ID:"+candidateID);
 	if (candidateTerm<=term)  
 	    {
 		mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID); 
-		System.out.println("server "+mID+"does not vote to server "+candidateID);
+		System.out.println("server: "+mID+"say no to server: "+candidateID);
 		return vote;
 	    } 
 	//candidateTerm>term
@@ -57,12 +57,11 @@ public class FollowerMode extends RaftMode {
 	if (lastLogTerm>lastTerm || (lastLogTerm == lastTerm && lastLogIndex>=lastIndex))
 	    {
 		//say yes, update local term
-		System.out.println("server "+mID+" vote to server "+candidateID);
+		System.out.println("server: "+mID+"say yes to server: "+candidateID);
 		vote = 0;
 	    }
 	mConfig.setCurrentTerm(candidateTerm, candidateID); //set current term and voted for
 	//default say no 
-	System.out.println("server "+mID+"does not vote to server "+candidateID);
 	mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID); 
 	return vote;
     }

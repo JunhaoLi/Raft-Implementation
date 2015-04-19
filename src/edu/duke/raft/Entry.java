@@ -5,8 +5,6 @@ import java.io.Serializable;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 
-
-//得到entry string的类
 public class Entry implements Serializable {
 
   public int action;
