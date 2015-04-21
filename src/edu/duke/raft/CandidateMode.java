@@ -3,23 +3,58 @@ package edu.duke.raft;
 import java.util.Timer;
 
 public class CandidateMode extends RaftMode {
-	
-    //generate a randomize timeout in the range 
+
     private int ELECTION_TIMEOUT;
     private Timer mTimer;
 	
     public void go () {
     synchronized (mLock) {
-      int term = mConfig.getCurrentTerm();
-      System.out.println ("S" + 
+    	int term = mConfig.getCurrentTerm()+1;
+    	mConfig.setCurrentTerm(term, mID);
+    	System.out.println ("S" + 
 			  mID + 
 			  "." + 
 			  term + 
 			  ": switched to candidate mode.");
-      ELECTION_TIMEOUT = (int)(((double)ELECTION_TIMEOUT_MAX-(double)ELECTION_TIMEOUT_MIN)*Math.random())+ELECTION_TIMEOUT_MIN; 
-      //already sent remote request
-      mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID);
+      
+    	ELECTION_TIMEOUT = (int)(((double)ELECTION_TIMEOUT_MAX-(double)ELECTION_TIMEOUT_MIN)*Math.random())+ELECTION_TIMEOUT_MIN; 
+    	mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID);
     }
+    
+    //VOTE PROCESS CAN BE INTERRUPTED BY TIMEOUT
+    //remote request, should get lock
+    int num = mConfig.getNumServers();
+    int term = mConfig.getCurrentTerm();
+    for (int i = 1;i<=num;i++)
+    {
+    	if (i == mID)
+    	{
+    		RaftResponses.setVote(mID, 0, term);  //vote for itself
+    		continue;
+	    }
+    	remoteRequestVote (i, term,mID,mLog.getLastIndex(),mLog.getLastTerm());
+    }
+    //check votes
+    int count = 0;
+    int [] votes = RaftResponses.getVotes(term);
+    for (int i = 1; i<=num;i++)
+    {
+  	 if (votes[i]>term)  //return higher term, back to follower
+  	 {
+  		 mTimer.cancel();
+  		 RaftMode mode = new FollowerMode();
+  		 RaftServerImpl.setMode(mode);
+  	 }
+  	 count += (votes[i] == 0?1:0);
+    }
+    System.out.println("server "+mID+" get "+count+" vote in candidate go");
+    if (count >= num/2+1)  //get majority, turn to leader
+    {
+        mTimer.cancel();
+        RaftMode mode =new LeaderMode();
+        RaftServerImpl.setMode(mode);
+    }
+    //otherwise, until timeout and election again
   }
 
   // @param candidate’s term
@@ -33,18 +68,18 @@ public class CandidateMode extends RaftMode {
 			  int lastLogIndex,
 			  int lastLogTerm) {
     synchronized (mLock) {
-	mTimer.cancel();
-	System.out.println("server "+mID+" in candiate "+candidateID+ "request vote");
+    	mTimer.cancel();
+    	
+    	System.out.println("server "+mID+" in candiate"+candidateID+ "request vote");
     	int term = mConfig.getCurrentTerm();
-    	if (candidateTerm > term)  //quit my election, update my term
+    	int result = term;
+    	if (candidateTerm>term)  //higher term,  quit my election, give higher candidate time
     	{
-    		mConfig.setCurrentTerm(candidateTerm, 0);  //vote for higher term
-		System.out.println("server "+mID+" quit election in term "+term);
-    		RaftMode mode = new FollowerMode();
-    		RaftServerImpl.setMode(mode);
+            RaftMode mode =new FollowerMode();
+            RaftServerImpl.setMode(mode);	
     	}
-	mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID);
-    	return term;
+    	mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID);
+    	return result;  //say no if in lower/same term
     }
   }
   
@@ -65,21 +100,25 @@ public class CandidateMode extends RaftMode {
 			    int leaderCommit) {
     synchronized (mLock) {
 	mTimer.cancel();
+	
 	System.out.println("server "+mID+"in candiate appendEntries");
 	int term = mConfig.getCurrentTerm ();
 	int result = term;
+	
 	//receive higher heartbeat, back to follower mode
 	if (leaderTerm>=term)
-	    {
-		System.out.println("server "+mID+" in term "+term+" back to follower mode");
+	{
+		System.out.println("server "+mID+" in candidate term "+term+" back to follower mode");
 		RaftMode mode = new FollowerMode();
 		RaftServerImpl.setMode(mode);
-	    }
-      /*//client send request to me, say no or append?
+	}
+      /*client send request to me, say no or append?
       if (leaderID == mID)
       {
     	  //how???
       }*/
+	
+	//from stale leader
 	mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID);
 	return result;
     }
@@ -89,16 +128,10 @@ public class CandidateMode extends RaftMode {
   public void handleTimeout (int timerID) {
     synchronized (mLock) {
     	mTimer.cancel();
+    	
     	System.out.println("server "+mID+"in candiate handletimeout");
-	
-		
-	//if candidate has voted, it quit election
-	if (mConfig.getVotedFor() != 0){
-	    System.out.println("server "+mID+" quit to follower");
-	    RaftMode mode = new FollowerMode();
-	    RaftServerImpl.setMode(mode);
-	}
-    	//check vote first
+    	
+    	//check vote again, should be completed in go
         int count = 0;
         int term = mConfig.getCurrentTerm();
         int num = mConfig.getNumServers();
@@ -112,18 +145,8 @@ public class CandidateMode extends RaftMode {
       	 }
       	 count += (votes[i] == 0?1:0);
         }
-        System.out.println("server "+mID+" get "+count+" vote");
-        //get majority, now send heartbeat
-        if(count>=num/2+1) {
-        	for (int i = 1; i<=num;i++)
-	        {
-			    if (mID == i)
-			    {
-			    	continue;
-			    }
-			    remoteAppendEntries(i, term, mID, 0, 0, null, 0);
-	        }
-        }
+        System.out.println("server "+mID+" get "+count+" vote in timeout");
+        
         RaftMode mode = (count>=num/2+1?new LeaderMode():new CandidateMode());
         RaftServerImpl.setMode(mode);
     }

@@ -4,6 +4,7 @@ import java.util.Timer;
 
 
 public class FollowerMode extends RaftMode {
+	
 	private Timer mTimer;
 	private int ELECTION_TIMEOUT;
 	
@@ -15,16 +16,13 @@ public class FollowerMode extends RaftMode {
 				    "." + 
 				    term + 
 				    ": switched to follower mode.");
-		//set a time to handle timeout
+		//calculate ramdomized timeout
 		ELECTION_TIMEOUT =  (int)(((double)ELECTION_TIMEOUT_MAX-(double)ELECTION_TIMEOUT_MIN)*Math.random())+ELECTION_TIMEOUT_MIN; 
-                //ELECTION_TIMEOUT =  ELECTION_TIMEOUT_MAX;
-		//clear status
-		//System.out.println ("Timeout time" +ELECTION_TIMEOUT+" test"); 
+		//initial status
 		mConfig.setCurrentTerm(term, 0);
 		RaftResponses.setTerm(term);
 		RaftResponses.clearVotes(term);
 		RaftResponses.clearAppendResponses(term);
-     
 		mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID);
 	    }
 	}
@@ -40,41 +38,38 @@ public class FollowerMode extends RaftMode {
 			  int lastLogIndex,
 			  int lastLogTerm) {
       synchronized (mLock) {
-	  mTimer.cancel();
-	  System.out.println("server "+mID+" in follower requestVote");
-	  int term = mConfig.getCurrentTerm ();
-	  int vote = term;
-	  int voteFor = mConfig.getVotedFor();
-	  int lastIndex = mLog.getLastIndex();
-	  int lastTerm = mLog.getLastTerm();
-	//System.out.println("S"+mID+" in requestVote candidateTerm: "+candidateTerm+" ID:"+candidateID);
-	  if (candidateTerm<=term ||voteFor!=0 )  
+    	  mTimer.cancel();
+    	  System.out.println("server "+mID+" in follower requestVote");
+    	  int term = mConfig.getCurrentTerm ();
+    	  int vote = term;
+    	  int voteFor = mConfig.getVotedFor();
+    	  int lastIndex = mLog.getLastIndex();
+    	  int lastTerm = mLog.getLastTerm();
+    	  
+    	  
+    	  /**********************vote policy*****************************/
+    	  //lower term or already voted
+    	  if (candidateTerm<=term ||voteFor!=0 )  
 	      {
-		  //mConfig.setCurrentTerm(candidateTerm, 0); //set current term and voted for
-		  //System.out.println("server "+mID+" follower, request vote, "+voteFor);
-		  //System.out.println("server "+mID+" follower, request vote, case one");
-		  System.out.println("server "+mID+" in term "+term+" does not vote to server "+candidateID);
-		  mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID);
-		  return vote;
+    		  System.out.println("server "+mID+" in term "+term+" does not vote to server "+candidateID);
+    		  mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID);
+    		  return vote;
 	      } 
-	  //candidateTerm>term
-	  //already voted in current term
-	  //System.out.println("candidateTerm>term");
-	  else if (lastLogTerm>lastTerm || (lastLogTerm == lastTerm && lastLogIndex>=lastIndex))
-	    {
-		//say yes, update local term
-		System.out.println("server "+mID+" in term "+term+" vote to server "+candidateID);
-		mConfig.setCurrentTerm(candidateTerm, candidateID); //DO NOT UPDATE term, but set vote
-		//System.out.println("server "+mID+" set vote "+mConfig.getVotedFor());
-		vote = 0;
-	    }
-	  else {
-	      //candidate has lower logTerm
-	      System.out.println("server "+mID+"does not vote to server "+candidateID);
-	  }
-	  //mConfig.setCurrentTerm(candidateTerm, ); //set current term and voted for	
-	  mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID); 
-	  return vote;
+
+    	  //candidateTerm>term
+    	  //higher term or, higher index with same term, say yes, update my term(possible)
+    	  if (lastLogTerm>lastTerm || (lastLogTerm == lastTerm && lastLogIndex>=lastIndex))
+    	  {
+    		  System.out.println("server "+mID+" in term "+term+" vote to server "+candidateID);
+    		  mConfig.setCurrentTerm(candidateTerm, candidateID); 
+    		  vote = 0;
+    	  }
+    	  else //lower term or same term with lower index
+    	  {
+    		  System.out.println("server "+mID+"does not vote to server "+candidateID);
+    	  }
+    	  mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID); 
+    	  return vote;
 	}
   }
   
@@ -94,60 +89,48 @@ public class FollowerMode extends RaftMode {
 			    Entry[] entries,
 			    int leaderCommit) {
       synchronized (mLock) {
-	  //cancel local timer
       	  mTimer.cancel();
-	  System.out.println("server "+mID+" in follower appendEntries");
-      
-	  int term = mConfig.getCurrentTerm ();
-	  int result = term;
-	  
-	  if (term>leaderTerm)  //request from stale leader
+      	  System.out.println("server "+mID+" in follower appendEntries");
+      	  int term = mConfig.getCurrentTerm ();
+      	  int result = term;
+      	  
+      	  //request from stale leader, say no
+      	  if (term>leaderTerm)  
 	      {
-		  //tell him to quit
-		  mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID); 
-		  return term;
+      		  mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID); 
+      		  return result;  //leader will check return value and turn to follower
 	      }
-	  mConfig.setCurrentTerm(Math.max(term, leaderTerm), 0);
-	  if (entries == null)  //is heartbeat, no append, just update term and lastApplied
-	      {
-		  mLastApplied = Math.max(mLastApplied, mCommitIndex);
-		  mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID);
-		  return term;
+      	  
+      	  //is heartbeat, just update status if possible
+      	  mConfig.setCurrentTerm(Math.max(term, leaderTerm), 0);
+      	  if (entries == null)
+	      { 
+      		  mLastApplied = Math.max(mLastApplied, mCommitIndex);
+      		  mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID);
+      		  return result;
 	      }
-	  else
+      	  else  //true append
 	      {
-		  //client send request to me, should forward to leader
-		  if (leaderID == mID)
-		      {
-			  //try each server
-			  int num = mConfig.getNumServers();
-			  for (int i = 1; i<=num;i++)
-			      {
-				  if (mID != i)
-				  {
-				      remoteAppendEntries(0,i,0, 0, 0, entries, 0);  //forward to leader
-				  }
-			      }
-		  }
-		  else  //true append
-		      {
-		      mConfig.setCurrentTerm(Math.max(term, prevLogTerm), 0);
-		      if (prevLogIndex == -1)  //should append from start
+      		  /* what if client sent to me?  --store in local, remote append to leader when i know who it is
+      		  if (leaderID == mID)
+      		  {
+			  } */
+      		  
+		      if (prevLogIndex == -1)  // append from start
 			  {
 			      mLog.insert(entries, -1, prevLogTerm);
 			      result =0;
-			      if (leaderCommit>mCommitIndex)  //only effecive when we append something
+			      if (leaderCommit>mCommitIndex)
 				  {
 				      mCommitIndex = Math.min(leaderCommit, mLog.getLastIndex());
 				      mLastApplied = Math.max(mLastApplied, mCommitIndex);
 				  }
 			  }
-		      else
+		      else  //possible append from somewhere
 			  {
 			      Entry testEntry = mLog.getEntry(prevLogIndex);
-			      if (testEntry != null && testEntry.term == prevLogTerm) //same index, same term
+			      if (testEntry != null && testEntry.term == prevLogTerm) //same index, same term, should append
 				  {
-				      //append, say yes and setCurrentTerm
 				      mLog.insert(entries, prevLogIndex, prevLogTerm);
 				      result = 0;
 				      if (leaderCommit>mCommitIndex)
@@ -155,10 +138,14 @@ public class FollowerMode extends RaftMode {
 					      mCommitIndex = Math.min(leaderCommit, mLog.getLastIndex());
 					      mLastApplied = Math.max(mLastApplied, mCommitIndex);
 					  }
-				  }  
+				  }
+			      else  //wrong entry, does not append
+			      {
+		      		  mLastApplied = Math.max(mLastApplied, mCommitIndex);
+			      }
 			  }
-		      }
-	  }  
+	  }
+      //append start/somewhere/wrong entry
 	  mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID); 
 	  return result; 
       }
@@ -167,29 +154,10 @@ public class FollowerMode extends RaftMode {
     // @param id of the timer that timed out
   public void handleTimeout (int timerID) {
     synchronized (mLock) {
-	mTimer.cancel();
+    	mTimer.cancel();
         System.out.println("server "+mID+" in follower handletimeout and send remote request");
-	int term = mConfig.getCurrentTerm()+1;
-	mConfig.setCurrentTerm(term, mID); //prepare to vote ifself
-	RaftResponses.setTerm(term);  //guarantee all later action can be accepted by RaftResponses
-	RaftResponses.clearAppendResponses(term);
-	RaftResponses.clearVotes(term);
-	//System.out.println(mID+" before mTimer");
-	
-	//send request to each follower before switch to candidate mode
-	int num = mConfig.getNumServers();
-	for (int i = 1;i<=num;i++)
-	    {
-		if (i == mID)
-		    {
-			RaftResponses.setVote(mID, 0, term);  //vote for itself
-			continue;
-		    }
-		remoteRequestVote (i, term,mID,mLog.getLastIndex(),mLog.getLastTerm());
-	    }
-	
+        //ready to switch to candidate
     	RaftMode mode = new CandidateMode();
     	RaftServerImpl.setMode (mode);
-    }
   }
 }
