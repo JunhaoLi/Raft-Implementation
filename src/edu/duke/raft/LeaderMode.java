@@ -69,6 +69,7 @@ public class LeaderMode extends RaftMode {
 			  int lastLogIndex,
 			  int lastLogTerm) {
     synchronized (mLock) {
+	System.out.println("server "+mID+"in leader requestVote");
       int term = mConfig.getCurrentTerm ();
       int vote = term;
       //if leader recover from failure, it is in follower mode
@@ -103,6 +104,7 @@ public class LeaderMode extends RaftMode {
 			    Entry[] entries,
 			    int leaderCommit) {
     synchronized (mLock) {
+	System.out.println("server "+mID+"in leader appendEntries");
     	int term = mConfig.getCurrentTerm();
     	
     	if (leaderID == mID)  //client(follower) requests
@@ -131,65 +133,70 @@ public class LeaderMode extends RaftMode {
   // @param id of the timer that timed out
   public void handleTimeout (int timerID) {
     synchronized (mLock) {
+	System.out.println("server "+mID+"in leader handtimeout");
 	heartTimer.cancel();
     	int term = mConfig.getCurrentTerm();
-		int num = mConfig.getNumServers();
-		int currentLast = mLog.getLastIndex();  //may not same between last append
-		
-	      //clear vote and append history
-	      RaftResponses.setTerm(term); 
-	      RaftResponses.clearVotes(term);
-	      RaftResponses.clearAppendResponses(term);
-		
+	int num = mConfig.getNumServers();
+	int currentLast = mLog.getLastIndex();  //may not same between last append
+	
+	//clear vote and append history
+	RaftResponses.setTerm(term); 
+	RaftResponses.clearVotes(term);
+	RaftResponses.clearAppendResponses(term);
+	
 	      //check and send new append request to each follower
-	      for (int i = 1; i<=num;i++)
-	      {
-	    	  if (mID == i)
-	    	  {
-	    		  continue;
-	    	  }
-	    	  else
-	    	  {
-	    		  while(matchIndex[i] <currentLast) //need content
-	    		  {
+	for (int i = 1; i<=num;i++)
+	    {
+		if (mID == i)
+		    {
+			continue;
+		    }
+		else if(matchIndex[i]==currentLast) {
+		    remoteAppendEntries(i, term, mID, 0, 0, null, 0);
+		    //??check response
+		}
+		else {    
+		    while(matchIndex[i] <currentLast) //need content
+			      {
 	    			  int start = nextIndex[i]+1;
 	    			  int end = currentLast;
 	    			  Entry[] currentEntry = new Entry[end-start+1];
 	    			  for (int j= 0; j<currentEntry.length;j++)
-	    			  {
+				      {
 	    				  currentEntry[j] = mLog.getEntry(start+j);
-	    			  }
+				      }
 	    			  int prevIndex = nextIndex[i]-1;
 	    			  int prevTerm = prevIndex == -1?0: mLog.getEntry(prevIndex).term;
 	    			  remoteAppendEntries (i,term,mID,prevIndex,prevTerm,currentEntry,mCommitIndex);
 	    			  //check
 	    			  int iResponse = RaftResponses.getAppendResponses(term)[i];
 	    			  if (iResponse == -1)  //fail
-	    			  {
+				      {
 	    				  break;
-	    			  }
+				      }
 	    			  else if (iResponse == 0)  //success
-	    			  {
+				      {
 	    				  matchIndex[i] = currentLast;
 	    				  nextIndex[i] = currentLast+1;
-	    			  }
+				      }
 	    			  else  //error
-	    			  {
+				      {
 	    				  nextIndex[i]--;
-	    			  }	 
-	    		  }
-	    	  }
-	      }
-    		//update commitIndex, median of match index
-    		int[] tempMatch = new int[num];
+				      }	 
+			      }
+		    
+		}
+	    }
+	//update commitIndex, median of match index
+	int[] tempMatch = new int[num];
     		for (int i = 0; i<tempMatch.length;i++)
-    		{
+		    {
     			tempMatch[i] = matchIndex[i+1];
-    		}
+		    }
     		Arrays.sort(tempMatch);
     		mCommitIndex = tempMatch[num/2];  //careful for index
     		heartTimer =  scheduleTimer (HEARTBEAT_INTERVAL, mID);
     }//end sync
   }//end handle
 }
- 
+
