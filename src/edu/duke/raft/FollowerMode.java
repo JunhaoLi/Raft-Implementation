@@ -48,6 +48,7 @@ public class FollowerMode extends RaftMode {
     	  
     	  
     	  /**********************vote policy*****************************/
+<<<<<<< HEAD
     	  //never vote for lower term
     	  if (candidateTerm<term)
     	  {
@@ -73,11 +74,31 @@ public class FollowerMode extends RaftMode {
         	  }
     	  }
     	  else  //always vote for higher term
+=======
+    	  //lower term or already voted
+    	  if (candidateTerm<=term ||voteFor!=0 )  
+	      {
+    		  System.out.println("server "+mID+" in term "+term+" does not vote to server "+candidateID);
+    		  mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID);
+    		  return vote;
+	      } 
+
+    	  //candidateTerm>term
+    	  //higher term or, higher index with same term, say yes, update my term(possible)
+    	  if (lastLogTerm>lastTerm || (lastLogTerm == lastTerm && lastLogIndex>=lastIndex))
+>>>>>>> origin/junhaoli
     	  {
     		  System.out.println("server "+mID+" in term "+term+" vote to server "+candidateID);
     		  mConfig.setCurrentTerm(candidateTerm, candidateID); 
     		  vote = 0;
     	  }
+<<<<<<< HEAD
+=======
+    	  else //lower term or same term with lower index
+    	  {
+    		  System.out.println("server "+mID+"does not vote to server "+candidateID);
+    	  }
+>>>>>>> origin/junhaoli
     	  mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID); 
     	  return vote;
 	}
@@ -169,6 +190,5 @@ public class FollowerMode extends RaftMode {
         //ready to switch to candidate
     	RaftMode mode = new CandidateMode();
     	RaftServerImpl.setMode (mode);
-    }
   }
 }

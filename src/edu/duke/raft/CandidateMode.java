@@ -16,11 +16,23 @@ public class CandidateMode extends RaftMode {
 			  "." + 
 			  term + 
 			  ": switched to candidate mode.");
+<<<<<<< HEAD
 
     //VOTE PROCESS CAN BE INTERRUPTED BY TIMEOUT
     //remote request, should get lock
     int num = mConfig.getNumServers();
     //int term = mConfig.getCurrentTerm();
+=======
+      
+    	ELECTION_TIMEOUT = (int)(((double)ELECTION_TIMEOUT_MAX-(double)ELECTION_TIMEOUT_MIN)*Math.random())+ELECTION_TIMEOUT_MIN; 
+    	mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID);
+    }
+    
+    //VOTE PROCESS CAN BE INTERRUPTED BY TIMEOUT
+    //remote request, should get lock
+    int num = mConfig.getNumServers();
+    int term = mConfig.getCurrentTerm();
+>>>>>>> origin/junhaoli
     for (int i = 1;i<=num;i++)
     {
     	if (i == mID)
@@ -28,6 +40,7 @@ public class CandidateMode extends RaftMode {
     		RaftResponses.setVote(mID, 0, term);  //vote for itself
     		continue;
 	    }
+<<<<<<< HEAD
     	remoteRequestVote (i, term,mID,mLog.getLastIndex(),mLog.getLastTerm());  // in current ready queue
     }
         
@@ -62,6 +75,30 @@ public class CandidateMode extends RaftMode {
         }
     }
 
+=======
+    	remoteRequestVote (i, term,mID,mLog.getLastIndex(),mLog.getLastTerm());
+    }
+    //check votes
+    int count = 0;
+    int [] votes = RaftResponses.getVotes(term);
+    for (int i = 1; i<=num;i++)
+    {
+  	 if (votes[i]>term)  //return higher term, back to follower
+  	 {
+  		 mTimer.cancel();
+  		 RaftMode mode = new FollowerMode();
+  		 RaftServerImpl.setMode(mode);
+  	 }
+  	 count += (votes[i] == 0?1:0);
+    }
+    System.out.println("server "+mID+" get "+count+" vote in candidate go");
+    if (count >= num/2+1)  //get majority, turn to leader
+    {
+        mTimer.cancel();
+        RaftMode mode =new LeaderMode();
+        RaftServerImpl.setMode(mode);
+    }
+>>>>>>> origin/junhaoli
     //otherwise, until timeout and election again
   }
 
