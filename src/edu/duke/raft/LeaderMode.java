@@ -39,6 +39,7 @@ public class LeaderMode extends RaftMode {
       {
     	  if (currentResponse[i]>term)
     	  {
+		  System.out.println("Leader become follower because higher term");
     		  RaftMode mode =new FollowerMode();
     		  RaftServerImpl.setMode(mode);
     	  }
