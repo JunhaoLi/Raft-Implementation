@@ -7,6 +7,8 @@ public class FollowerMode extends RaftMode {
 	
 	private Timer mTimer;
 	private int ELECTION_TIMEOUT;
+    private Entry[] localCache;
+    private int lastLeader;
 	
 	public void go () {
 	    synchronized (mLock) {
