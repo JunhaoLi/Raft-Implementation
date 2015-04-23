@@ -10,7 +10,11 @@ public class FollowerMode extends RaftMode {
 	
 	public void go () {
 	    synchronized (mLock) {
-		int term = mConfig.getCurrentTerm()+1;
+		int term = mConfig.getCurrentTerm();
+		/*if (term == 1)
+		{
+			term = 2;
+			}*/
 		System.out.println ("S" + 
 				    mID + 
 				    "." + 
