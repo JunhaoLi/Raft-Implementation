@@ -21,7 +21,9 @@ public class StartClient {
     try {
       RaftServer server = (RaftServer) Naming.lookup(url);
       server.requestVote (0, 0, 0, 0);
-      server.appendEntries (0, 0, 0, 0, null, 0);
+      Entry[] content = new Entry[1];
+      content[0] = new Entry(5,0);
+      server.appendEntries (0, 1, 0, 0, content, 0);
     } catch (MalformedURLException me) {
       System.out.println (me.getMessage());
     } catch (RemoteException re) {

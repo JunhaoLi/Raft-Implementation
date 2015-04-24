@@ -110,6 +110,7 @@ public abstract class RaftMode {
 	    RaftResponses.setVote (serverID, 
 				   response, 
 				   candidateTerm);
+	    System.out.println("setVote");
 	  }
 	} catch (MalformedURLException me) {
 	  printFailedRPC (candidateID, 
