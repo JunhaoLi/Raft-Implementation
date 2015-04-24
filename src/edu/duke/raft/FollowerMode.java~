@@ -22,9 +22,6 @@ public class FollowerMode extends RaftMode {
 		//calculate ramdomized timeout
 		ELECTION_TIMEOUT =  (int)(((double)ELECTION_TIMEOUT_MAX-(double)ELECTION_TIMEOUT_MIN)*Math.random())+ELECTION_TIMEOUT_MIN; 
 		//initial status
-		if (mID == 1){
-		    ELECTION_TIMEOUT = 130;
-		}
 		mConfig.setCurrentTerm(term, 0);
 		RaftResponses.setTerm(term);
 		RaftResponses.clearVotes(term);

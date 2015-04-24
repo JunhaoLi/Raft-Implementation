@@ -115,7 +115,7 @@ public class LeaderMode extends RaftMode {
 		{
 			entries[i].term = term;
 		}
-		System.out.println(entries[0].action);
+		System.out.println(entreis[0].action);
     		mLog.append(entries);
     		matchIndex[mID] = mLog.getLastIndex();
     		//heartbeat will check new lastIndex later
