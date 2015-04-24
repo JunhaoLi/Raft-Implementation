@@ -7,17 +7,9 @@ public class FollowerMode extends RaftMode {
 	
     private Timer mTimer;
     private Timer eTimer;
-<<<<<<< HEAD
-    
     private int ELECTION_TIMEOUT;
     private List<Entry> localCache;
     private int lastLeader;
-    private int lastCommit;  //last commit index information from leader
-=======
-    private int ELECTION_TIMEOUT;
-    private List<Entry> localCache;
-    private int lastLeader;
->>>>>>> origin/junhaoli
 	
 	public void go () {
 	    synchronized (mLock) {
@@ -27,21 +19,16 @@ public class FollowerMode extends RaftMode {
 				    "." + 
 				    term + 
 				    ": switched to follower mode.");
-		//calculate random timeout
+		//calculate ramdomized timeout
 		ELECTION_TIMEOUT =  (int)(((double)ELECTION_TIMEOUT_MAX-(double)ELECTION_TIMEOUT_MIN)*Math.random())+ELECTION_TIMEOUT_MIN; 
-<<<<<<< HEAD
-=======
 		//initial status
 		if (mID == 1){
 		    ELECTION_TIMEOUT = 130;
 		}
->>>>>>> origin/junhaoli
 		mConfig.setCurrentTerm(term, 0);
 		RaftResponses.setTerm(term);
 		RaftResponses.clearVotes(term);
 		RaftResponses.clearAppendResponses(term);
-		lastCommit = -1;
-		//set timer
 		mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID);
 		eTimer = this.scheduleTimer(10,mID+1);
 	    }
@@ -68,21 +55,13 @@ public class FollowerMode extends RaftMode {
     	  
     	  
     	  /**********************vote policy*****************************/
-<<<<<<< HEAD
-
-=======
->>>>>>> origin/junhaoli
     	  //never vote for lower term
     	  if (candidateTerm<term)
     	  {
     		  System.out.println("server "+mID+" in term "+term+" does not vote to server "+candidateID);
     		  mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID);
     		  return vote;
-<<<<<<< HEAD
-    	  }	  
-=======
     	  }
->>>>>>> origin/junhaoli
     	  else if (candidateTerm == term)  //compare log index
     	  {	
 	      if (voteFor != 0)  //already vote in this term
@@ -149,21 +128,15 @@ public class FollowerMode extends RaftMode {
       	  
       	  //is heartbeat, just update status if possible
       	  mConfig.setCurrentTerm(Math.max(term, leaderTerm), 0);
-  		  lastCommit = leaderCommit;
       	  if (entries == null)
 	      { 
-      		  System.out.println("Follower "+mID+"recive heartbeat");
       		  mLastApplied = Math.max(mLastApplied, mCommitIndex);
       		  mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID);
-      		  return -1;
+      		  return result;
 	      }
       	  else  //true append
 	      {
-<<<<<<< HEAD
-      		  System.out.println("Follower "+mID+"in true append");
-=======
 		  System.out.println("Follower "+mID+"in true append");
->>>>>>> origin/junhaoli
 		      if (prevLogIndex == -1)  // append from start
 			  {
 			      mLog.insert(entries, -1, prevLogTerm);
@@ -208,22 +181,9 @@ public class FollowerMode extends RaftMode {
       {
         mTimer.cancel();
         System.out.println("server "+mID+" in follower handletimeout and send remote request");
-<<<<<<< HEAD
-        //ready to switch to candidate if i have all commited index entry
-        if (lastCommit == mLog.getLastIndex())
-        {
-            RaftMode mode = new CandidateMode();
-            RaftServerImpl.setMode (mode);
-        }
-        else  //stay in follower and wait for candidate vote request
-        {
-        	mTimer = this.scheduleTimer(ELECTION_TIMEOUT, mID);
-        }
-=======
         //ready to switch to candidate
         RaftMode mode = new CandidateMode();
         RaftServerImpl.setMode (mode);
->>>>>>> origin/junhaoli
       }
       else
       {
@@ -241,16 +201,9 @@ public class FollowerMode extends RaftMode {
               RaftResponses.setAppendResponse(lastLeader, -1, term);
           }
           eTimer = this.scheduleTimer(10, mID+1);
-<<<<<<< HEAD
-          }
-      }
-    }
-  }//end handle timeout
-=======
 	}
       }
 
     }
   }
->>>>>>> origin/junhaoli
 }

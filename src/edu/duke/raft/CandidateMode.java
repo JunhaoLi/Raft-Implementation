@@ -38,6 +38,11 @@ public class CandidateMode extends RaftMode {
     	mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID);
     	cTimer = this.scheduleTimer(10, mID+1);
     }
+<<<<<<< HEAD
+=======
+    
+    //otherwise, until timeout and election again
+>>>>>>> origin/junhaoli
   }
 
   // @param candidate’s term
