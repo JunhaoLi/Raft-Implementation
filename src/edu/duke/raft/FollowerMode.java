@@ -5,10 +5,16 @@ import java.util.*;
 
 public class FollowerMode extends RaftMode {
 	
+<<<<<<< HEAD
     private Timer mTimer;
     private Timer eTimer;
     private int ELECTION_TIMEOUT;
     private List<Entry> localCache;
+=======
+	private Timer mTimer;
+	private int ELECTION_TIMEOUT;
+    private Entry[] localCache;
+>>>>>>> origin/junhaoli
     private int lastLeader;
 	
 	public void go () {
