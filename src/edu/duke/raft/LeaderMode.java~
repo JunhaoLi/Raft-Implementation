@@ -110,12 +110,11 @@ public class LeaderMode extends RaftMode {
     	
     	if (leaderID == mID)  //client(follower) requests
     	{
-		System.out.println("hahahaha");
+		System.out.println("hahahaha"+entries[0].action);
 		for (int i = 0 ;i<entries.length;i++)
 		{
 			entries[i].term = term;
 		}
-		System.out.println(entreis[0].action);
     		mLog.append(entries);
     		matchIndex[mID] = mLog.getLastIndex();
     		//heartbeat will check new lastIndex later
@@ -147,9 +146,9 @@ public class LeaderMode extends RaftMode {
 	int currentLast = mLog.getLastIndex();  //may not same between last append
 	
 	//clear vote and append history
-	RaftResponses.setTerm(term); 
-	RaftResponses.clearVotes(term);
-	RaftResponses.clearAppendResponses(term);
+	//RaftResponses.setTerm(term); 
+	//RaftResponses.clearVotes(term);
+	//RaftResponses.clearAppendResponses(term);
 	
 	      //check and send new append request to each follower
 	for (int i = 1; i<=num;i++)
@@ -165,29 +164,39 @@ public class LeaderMode extends RaftMode {
 		else {    
 		    while(matchIndex[i] <currentLast) //need content
 			      {
-	    			  int start = nextIndex[i]+1;
+				  //System.out.println("true append "+currentLast);
+	    			  int start = nextIndex[i];
 	    			  int end = currentLast;
 	    			  Entry[] currentEntry = new Entry[end-start+1];
+	    			  //System.out.println("send length: "+(end-start+1));
 	    			  for (int j= 0; j<currentEntry.length;j++)
 				      {
 	    				  currentEntry[j] = mLog.getEntry(start+j);
 				      }
 	    			  int prevIndex = nextIndex[i]-1;
 	    			  int prevTerm = prevIndex == -1?0: mLog.getEntry(prevIndex).term;
+	    			  //System.out.println("prevIndex:  "+prevIndex+" prevTerm: "+prevTerm);
+	    			  /*for (int j =0; j<currentEntry.length;j++)
+	    			  {
+	    				  System.out.println("send content["+j+"] : "+currentEntry[j]);
+					  }*/
 	    			  remoteAppendEntries (i,term,mID,prevIndex,prevTerm,currentEntry,mCommitIndex);
 	    			  //check
 	    			  int iResponse = RaftResponses.getAppendResponses(term)[i];
 	    			  if (iResponse == -1)  //fail
 				      {
+					  System.out.println("response -1");
 	    				  break;
 				      }
 	    			  else if (iResponse == 0)  //success
 				      {
+					  System.out.println("response 0");
 	    				  matchIndex[i] = currentLast;
 	    				  nextIndex[i] = currentLast+1;
 				      }
 	    			  else  //error
 				      {
+					  System.out.println("response: "+iResponse);
 	    				  nextIndex[i]--;
 				      }	 
 			      }

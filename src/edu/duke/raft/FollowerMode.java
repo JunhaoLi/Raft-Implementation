@@ -5,16 +5,10 @@ import java.util.*;
 
 public class FollowerMode extends RaftMode {
 	
-<<<<<<< HEAD
     private Timer mTimer;
     private Timer eTimer;
     private int ELECTION_TIMEOUT;
     private List<Entry> localCache;
-=======
-	private Timer mTimer;
-	private int ELECTION_TIMEOUT;
-    private Entry[] localCache;
->>>>>>> origin/junhaoli
     private int lastLeader;
 	
 	public void go () {
@@ -36,7 +30,7 @@ public class FollowerMode extends RaftMode {
 		RaftResponses.clearVotes(term);
 		RaftResponses.clearAppendResponses(term);
 		mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID);
-    eTimer = this.scheduleTimer(10,mID+1);
+		eTimer = this.scheduleTimer(10,mID+1);
 	    }
 	}
     
@@ -124,9 +118,7 @@ public class FollowerMode extends RaftMode {
               localCache.add(entries[i]);
             }
           }
-	  
-
-      	  
+	        	  
       	  //request from stale leader, say no
       	  if (term>leaderTerm)  
 	      {
@@ -140,11 +132,11 @@ public class FollowerMode extends RaftMode {
 	      { 
       		  mLastApplied = Math.max(mLastApplied, mCommitIndex);
       		  mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID);
-      		  return result;
+      		  return -1;
 	      }
       	  else  //true append
 	      {
-      		  
+		  System.out.println("Follower "+mID+"in true append");
 		      if (prevLogIndex == -1)  // append from start
 			  {
 			      mLog.insert(entries, -1, prevLogTerm);
@@ -167,6 +159,7 @@ public class FollowerMode extends RaftMode {
 					      mCommitIndex = Math.min(leaderCommit, mLog.getLastIndex());
 					      mLastApplied = Math.max(mLastApplied, mCommitIndex);
 					  }
+				      System.out.println("insert successful");
 				  }
 			      else  //wrong entry, does not append
 			      {
@@ -175,7 +168,8 @@ public class FollowerMode extends RaftMode {
 			  }
 	  }
       //append start/somewhere/wrong entry
-	  mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID); 
+	  mTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID);
+	  System.out.println("server "+mID+" return "+result);
 	  return result; 
       }
   }  
