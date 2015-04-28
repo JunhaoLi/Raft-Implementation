@@ -22,11 +22,7 @@ public class StartClient {
       RaftServer server = (RaftServer) Naming.lookup(url);
       server.requestVote (0, 0, 0, 0);
       Entry[] content = new Entry[1];
-<<<<<<< HEAD
-      content[0] = new Entry(5,0);
-=======
       content[0] = new Entry(2,0);
->>>>>>> origin/junhaoli
       server.appendEntries (0, 1, 0, 0, content, 0);
     } catch (MalformedURLException me) {
       System.out.println (me.getMessage());
