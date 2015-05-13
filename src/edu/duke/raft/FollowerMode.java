@@ -17,6 +17,7 @@ public class FollowerMode extends RaftMode {
     {
     	synchronized (mLock) 
     	{
+	    localCache=new ArrayList<Entry>();
     		int term = mConfig.getCurrentTerm();
 		    System.out.println ("S" + 
 				    mID + 
@@ -32,7 +33,7 @@ public class FollowerMode extends RaftMode {
 		    //calculate random timeout
 		    ELECTION_TIMEOUT =  (int)(((double)ELECTION_TIMEOUT_MAX-(double)ELECTION_TIMEOUT_MIN)*Math.random())+ELECTION_TIMEOUT_MIN; 
 		    followerTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID);
-		    cacheTimer = this.scheduleTimer(10,mID+1);
+		    // cacheTimer = this.scheduleTimer(10,mID+1);
 	    }
 	}
     
@@ -71,16 +72,18 @@ public class FollowerMode extends RaftMode {
     			
     			//candidateTerm == term && voteFor == 0
     			//candidateTerm > term
-    			 if (lastLogIndex>mLog.getLastTerm() || lastLogIndex>=lastIndex)
+    			 if (lastLogTerm>mLog.getLastTerm() || lastLogIndex>=lastIndex)
     			 {
     				//System.out.println("server "+mID+" in term "+term+" vote to server "+candidateID);
     				mConfig.setCurrentTerm(candidateTerm, candidateID); 
-    				vote = 0;
+    				RaftResponses.setTerm(candidateTerm);
+				vote = 0;
     			 }
     			else //lower term or same term with lower index
     			{
     				//update my term but not vote for anyone
-    				mConfig.setCurrentTerm(candidateTerm, 0); 
+			        RaftResponses.setTerm(candidateTerm);
+    				mConfig.setCurrentTerm(candidateTerm,0); 
     			}
     			followerTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID); 
     			return vote;
@@ -107,35 +110,64 @@ public class FollowerMode extends RaftMode {
     	synchronized (mLock) 
     	{
     		followerTimer.cancel();
-    		int term = mConfig.getCurrentTerm ();
+    	        int term = mConfig.getCurrentTerm ();
     		int result = term;
           
-    		if (leaderID == mID)  //forward to leader if it is known
+    		if (leaderID == mID)
     		{
     			for(int i = 0; i<entries.length;i++)
     			{
     				localCache.add(entries[i]);
     			}
+			followerTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID);
+    			return 0;
     		}
     		else  //append from server
     		{
     			//request from stale leader (not likely), return current term
-        		if (term>leaderTerm)  
+        		/*if (term>leaderTerm)  
         		{
         			followerTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID); 
         			return result;  //leader will check return value and turn to follower
-        		}
+        		}*/
         		lastLeader = leaderID;
-        		mConfig.setCurrentTerm(Math.max(term, leaderTerm), 0);
+			RaftResponses.setTerm(leaderTerm);
+		        mConfig.setCurrentTerm(leaderTerm, 0);
         		if (entries == null)//is heartbeat
         		{ 
-        			//System.out.println("Follower "+mID+"recive heartbeat");
-        			mLastApplied = Math.max(mLastApplied, mCommitIndex);
-        			followerTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID);
-        			return -1;
+			    // System.out.println("Follower "+mID+"recive heartbeat");
+			    term = mConfig.getCurrentTerm();
+			    mLastApplied = Math.max(mLastApplied, mCommitIndex);
+                           
+			    // System.out.println("before isEmpty");
+			    //Boolean test=true;
+			    //if(localCache!=null){
+			    //test=localCache.isEmpty();
+			    // }
+                            //System.out.println("After isEmpty");
+			    //System.out.println("///////////localcache null"+test);
+		    			    
+			    if ((localCache.isEmpty() == false))// && (lastLeader != -1))
+				{
+				    // assert(!localCache.isEmpty());			    
+                                    Entry[] content= new Entry[localCache.size()];
+				    localCache.toArray(content);
+				    //RaftResponses.setTerm(term);
+				    //RaftResponses.clearAppendResponses(term);
+				    remoteAppendEntries(lastLeader, term, lastLeader, 0,0, content, 0);
+				    //check response
+				    //if (RaftResponses.getAppendResponses(term)[lastLeader] == 0)  //successful append, otherwise send next time
+				    //  {
+				    localCache.clear();
+				    //   RaftResponses.setAppendResponse(lastLeader, -1, term);
+				    // }
+				}
+			    
+			    followerTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID);
+			    return 0;
         		}
         		else  // append entries
-        		{
+			    {
         			//System.out.println("Follower "+mID+"in true append");
         			if (prevLogIndex == -1)  // append from start
         			{
@@ -147,8 +179,8 @@ public class FollowerMode extends RaftMode {
     				      mLastApplied = Math.max(mLastApplied, mCommitIndex);
         				}
         			}
-        	        else  //append from somewhere, check
-        	        {
+				else  //append from somewhere, check
+				{
         	        	Entry testEntry = mLog.getEntry(prevLogIndex);
         	        	if (testEntry != null && testEntry.term == prevLogTerm) //same index, same term, should append
         	        	{
@@ -169,11 +201,10 @@ public class FollowerMode extends RaftMode {
         		  followerTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID);
         		  //System.out.println("server "+mID+" return "+result);
         		  return result; 
-        		  } 
-        		}   //end append entries
-		return result;
-    		}//end synchronize
-    	}
+			}
+	           }//end append from server
+    	   }//end synchronize
+}//end append
     
     // @param id of the timer that timed out
   public void handleTimeout (int timerID) 
@@ -189,23 +220,28 @@ public class FollowerMode extends RaftMode {
         RaftServerImpl.setMode (mode);
       }
       else
-      {
+      {/*
         cacheTimer.cancel();  //check cache
         int term = mConfig.getCurrentTerm();
-        if (localCache.isEmpty() == false && lastLeader != -1)
-        {
+	try{
+        if ((localCache.isEmpty() == false) && (lastLeader != -1))   
+     {
           Entry[] content= new Entry[localCache.size()];
           localCache.toArray(content);
           this.remoteAppendEntries(lastLeader, 0, lastLeader, 0,0, content, 0);
-          //check response
+	  //check response
           if (RaftResponses.getAppendResponses(term)[lastLeader] == 0)  //successful append, otherwise send next time
           {
         	  localCache.clear();
               RaftResponses.setAppendResponse(lastLeader, -1, term);
-          }
-          cacheTimer = this.scheduleTimer(10, mID+1);
-          }
-      }
+	      }
+        }
+	}
+	catch(Exception e){
+	    System.out.println("localcache null pointer");
+	}
+        cacheTimer = this.scheduleTimer(10, mID+1);
+       */}
     }
   }//end handle timeout
 }

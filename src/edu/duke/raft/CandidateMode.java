@@ -64,7 +64,7 @@ public class CandidateMode extends RaftMode {
 		  {
 			  RaftMode mode =new FollowerMode();
 			  RaftServerImpl.setMode(mode);
-			  return result;  
+			  return 0; //return result?  
 		  }
 		  candidateTimer = this.scheduleTimer(ELECTION_TIMEOUT,mID);
 		  checkTimer = this.scheduleTimer(10,mID+1);
@@ -127,6 +127,7 @@ public class CandidateMode extends RaftMode {
         int term = mConfig.getCurrentTerm();
         int num = mConfig.getNumServers();
         int [] votes = RaftResponses.getVotes(term);
+	assert(votes!=null):"raftresponses null pointer"; //if votes==null,vote[i] will be null-pointer error;
         for (int i = 1; i<=num;i++)
         {
           if (votes[i]>term)  //have higher term, back to follower
